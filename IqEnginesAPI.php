@@ -47,6 +47,15 @@ class IqEnginesAPI {
         }
         return $ch;
     }
+    
+    private function getComposedField($key,$value){
+        if ($key == 'img'){
+            $exploded = explode('/', $value);
+            $filename = $exploded[count($exploded) - 1];
+            return $key.$filename;
+        }
+        return $key.$value;
+    }
 
     /**
     * Fields should be concatenated with key alphabetical sorting
@@ -61,13 +70,9 @@ class IqEnginesAPI {
         ksort($complete_array);
         $flat_signature = "";
         foreach ($complete_array as $key => $value) {
-            $flat_signature .= $key.$value;
+            $flat_signature .= $this->getComposedField($key,$value);
         }
         $encoded_signature = hash_hmac("sha1", $flat_signature, $this->api_secret, false);
-        
-        if (isset($complete_array['img'])){
-            $complete_array['img'] = '@' . realpath($complete_array['img']);
-        }
         $complete_array['api_sig'] = $encoded_signature;
         return $complete_array;
     }
@@ -76,9 +81,10 @@ class IqEnginesAPI {
      * 
      * @return string quid or false
      */
-    public function query($filename) {
+    public function query($abs_path) {
+        
         // Preparing the data we will be sending
-        $fields = $this->signFields(array("img" => $filename));
+        $fields = $this->signFields(array("img" => '@'.$abs_path));
 
         $ch = $this->initCurl($fields, self::$QUERY_END_POINT);
         $response = curl_exec($ch);
@@ -97,8 +103,8 @@ class IqEnginesAPI {
         return false;   
     }
 
-    public function match($filename){
-        return $this->result($this->query($filename));
+    public function match($abs_path){
+        return $this->result($this->query($abs_path));
     }
       
     public function result($quid, $try_count = 0){
@@ -109,7 +115,7 @@ class IqEnginesAPI {
         
         $ch = $this->initCurl($fields,self::$RESULT_END_POINT);
         $response = curl_exec($ch);
-
+        curl_close($ch);
         if ($this->verifyResponseReady($response)){
             return $response;
         }

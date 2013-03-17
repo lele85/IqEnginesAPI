@@ -7,4 +7,4 @@ $api = new IqEnginesAPI(array(
 	'max_result_call' => 3 //Polling call limits for query results 
 	)
 );
-echo $api->match("sample.jpg");
+echo $api->match(realpath("sample.jpg"));
