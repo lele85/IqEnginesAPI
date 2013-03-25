@@ -10,18 +10,15 @@ class IqEnginesAPI {
 
     static $QUERY_END_POINT = "http://api.iqengines.com/v1.2/query/";
     static $RESULT_END_POINT = "http://api.iqengines.com/v1.2/result/";
+    static $UPDATE_END_POINT = "http://api.iqengines.com/v1.2/update/";
 
     private $api_key;
     private $api_secret;
-    private $max_result_call = 1;
     private $use_json = 1;
 
     public function __construct($params) {
         $this->api_key = $params['api_key'];
         $this->api_secret = $params['api_secret'];
-        if (isset($params['max_result_call'])) {
-            $this->max_result_call = $params['max_result_call'];
-        }
     }
     
     private function verifyQueryResponse($response){
@@ -32,6 +29,11 @@ class IqEnginesAPI {
                 ($response["data"]["error"] == 0)
                 );
         return $success;
+    }
+
+    private function getUniqueDeviceId(){
+        $id = (string)sha1(uniqid(mt_rand(), true));
+        return $id;
     }
 
     private function initCurl($fields, $endpoint){
@@ -81,11 +83,13 @@ class IqEnginesAPI {
      * 
      * @return string quid or false
      */
-    public function query($abs_path) {
+    public function query($abs_path, $deviceId) {
         
         // Preparing the data we will be sending
-        $fields = $this->signFields(array("img" => '@'.$abs_path));
-
+        $fields = $this->signFields(array(
+            "img" => '@'.$abs_path,
+            "device_id" => $deviceId,
+        ));
         $ch = $this->initCurl($fields, self::$QUERY_END_POINT);
         $response = curl_exec($ch);
         if($this->verifyQueryResponse($response)){
@@ -94,32 +98,25 @@ class IqEnginesAPI {
         return false;
     }
     
-    private function verifyResponseReady($response){
-        $o_response = json_decode($response, true);
-        $ready = !(isset($o_response['data']) && isset($o_response['data']['comment']));
-        if ($ready){
-            return $response;
-        }
-        return false;   
+    public function match($abs_path){
+        $deviceId = $this->getUniqueDeviceId();
+        $qid = $this->query($abs_path, $deviceId);
+        return $this->update($deviceId);
     }
 
-    public function match($abs_path){
-        return $this->result($this->query($abs_path));
+    public function update($deviceId){
+        $fields = $this->signFields(array("device_id"=>$deviceId));
+        $ch = $this->initCurl($fields,self::$UPDATE_END_POINT);
+        $response = curl_exec($ch);
+        curl_close($ch);
+        return $response;
     }
       
-    public function result($quid, $try_count = 0){
-        if ($try_count > $this->max_result_call){
-            return false;
-        }
+    public function result($quid){
         $fields = $this->signFields(array('qid' => $quid));
-        
         $ch = $this->initCurl($fields,self::$RESULT_END_POINT);
         $response = curl_exec($ch);
         curl_close($ch);
-        if ($this->verifyResponseReady($response)){
-            return $response;
-        }
-        $try_count +=1;
-        return $this->result($quid, $try_count);
+        return $response;
     }
 }
