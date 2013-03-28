@@ -79,10 +79,7 @@ class IqEnginesAPI {
         return $complete_array;
     }
 
-    /**
-     * 
-     * @return string quid or false
-     */
+    
     public function query($abs_path, $deviceId) {
         
         // Preparing the data we will be sending
@@ -93,7 +90,7 @@ class IqEnginesAPI {
         $ch = $this->initCurl($fields, self::$QUERY_END_POINT);
         $response = curl_exec($ch);
         if($this->verifyQueryResponse($response)){
-            return $fields['api_sig'];
+            return $response;
         }
         return false;
     }
